@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flaskext.mysql import MySQL
 from flask_restful import Resource, Api
 import hashlib
+import json
 
 app = Flask(__name__)
 mysql = MySQL()
@@ -53,9 +54,41 @@ class User(Resource):
             conn.close()
             return(response)
  
+class Auth(Resource):
+    def post(self):
+        try:
+            conn = mysql.connect()
+            cursor = conn.cursor()
+            json_form = request.get_json(force=True)
+
+            username = hashlib.md5(json_form['username'].encode()).hexdigest()
+            password = hashlib.md5(json_form['password'].encode()).hexdigest()
+            
+            auth_user = "SELECT * FROM users WHERE USERNAME = \'"+username +"\' AND PASSWORD = \'"+password +"\'"
+            cursor.execute(auth_user)
+            rows = cursor.fetchall()
+            if len(rows) == 1:
+                result = {
+                    "status" : "success",
+                    "userId" : rows[0][0]
+                }
+            else:
+                result = {
+                    "status" : "User not present"
+                }
+            return jsonify(result)
+
+        except Exception as e:
+            print(e)
+        finally:
+            cursor.close()
+            conn.close()
+
+ 
+
 #API resource routes
 api.add_resource(User, '/user')
-# api.add_resource(Auth, '/user/auth')
+api.add_resource(Auth, '/user/auth')
 
 if __name__ == "__main__":
     app.run(debug=True)
